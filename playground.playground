@@ -1,0 +1,159 @@
+import UIKit
+
+
+func maskCPF(from string: String) -> String {
+    
+    guard string.count == 11 else { return "" }
+
+    let part1start = string.index(string.startIndex, offsetBy: 0)
+    let part1end   = string.index(string.startIndex, offsetBy: 3)
+    let part1      = String(string[part1start..<part1end])
+    
+    let part2start = string.index(string.startIndex, offsetBy: 3)
+    let part2end   = string.index(string.startIndex, offsetBy: 6)
+    let part2      = String(string[part2start..<part2end])
+    
+    let part3start = string.index(string.startIndex, offsetBy: 6)
+    let part3end   = string.index(string.startIndex, offsetBy: 9)
+    let part3      = String(string[part3start..<part3end])
+    
+    let part4start = string.index(string.startIndex, offsetBy: 9)
+    let part4end   = string.index(string.startIndex, offsetBy: 11)
+    let part4      = String(string[part4start..<part4end])
+    
+    return "\(part1).\(part2).\(part3)-\(part4)"
+    
+}
+
+func maskCNPJ(from string: String) -> String {
+    
+    guard string.count == 14 else { return "" }
+
+    let part1start = string.index(string.startIndex, offsetBy: 0)
+    let part1end   = string.index(string.startIndex, offsetBy: 2)
+    let part1      = String(string[part1start..<part1end])
+    
+    let part2start = string.index(string.startIndex, offsetBy: 2)
+    let part2end   = string.index(string.startIndex, offsetBy: 5)
+    let part2      = String(string[part2start..<part2end])
+    
+    let part3start = string.index(string.startIndex, offsetBy: 5)
+    let part3end   = string.index(string.startIndex, offsetBy: 8)
+    let part3      = String(string[part3start..<part3end])
+    
+    let part4start = string.index(string.startIndex, offsetBy: 8)
+    let part4end   = string.index(string.startIndex, offsetBy: 12)
+    let part4      = String(string[part4start..<part4end])
+    
+    let part5start = string.index(string.startIndex, offsetBy: 12)
+    let part5end   = string.index(string.startIndex, offsetBy: 14)
+    let part5      = String(string[part5start..<part5end])
+    
+    return "\(part1).\(part2).\(part3)/\(part4)-\(part5)"
+    
+}
+
+func maskCpfOrCnpj(from string: String) -> String {
+    switch string.count {
+    case 11: return maskCPF(from: string)
+    case 14: return maskCNPJ(from: string)
+    default: return ""
+    }
+}
+
+let cpf =  "91800915047"
+let cnpj = "37021914000149"
+
+print( maskCpfOrCnpj(from: cpf)  )
+print( maskCpfOrCnpj(from: cnpj) )
+
+// -----------------------------------------
+
+protocol GenericModelProtocol { }
+
+struct PFModel: GenericModelProtocol {
+  var name: String
+  var cpf: String
+}
+
+extension PFModel: Codable {
+    
+    init(dictionary: [String: Any]) throws {
+        self = try JSONDecoder().decode(PFModel.self, from: JSONSerialization.data(withJSONObject: dictionary))
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case cpf  = "cpf"
+    }
+    
+}
+
+struct PJModel: GenericModelProtocol {
+  var razaoSocial: String
+  var cnpj: String
+}
+
+extension PJModel: Codable {
+    
+    init(dictionary: [String: Any]) throws {
+        self = try JSONDecoder().decode(PJModel.self, from: JSONSerialization.data(withJSONObject: dictionary))
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case razaoSocial = "razaoSocial"
+        case cnpj  = "cnpj"
+    }
+    
+}
+
+// -----------------------------------------
+
+enum AvailableModel {
+    case PFModel
+    case PJModel
+}
+
+func convertUnknowedTypeOfModelToCustomModel(withModel model: Any, convertTo selectedModel: AvailableModel) -> GenericModelProtocol? {
+    
+    let mirror = Mirror(reflecting: model)
+    
+    let dictionary = Dictionary(uniqueKeysWithValues: mirror.children.lazy.map({ (key: String?, value: Any) -> (String, Any)? in
+        guard let key = key else { return nil }
+        return (key, value)
+    }).compactMap { $0 })
+    
+    switch selectedModel {
+    case .PFModel: return try? PFModel(dictionary: dictionary)
+    case .PJModel: return try? PJModel(dictionary: dictionary)
+    }
+    
+}
+
+// -----------------------------------------
+// Usage
+// -----------------------------------------
+
+struct UnknowedTypeOfPFModel {
+  var name: String
+  var cpf: String
+}
+
+struct UnknowedTypeOfPJModel {
+  var razaoSocial: String
+  var cnpj: String
+}
+
+let unknowedTypeOfPFModel = UnknowedTypeOfPFModel(name: "Marcello", cpf: "91800915047")
+let unknowedTypeOfPJModel = UnknowedTypeOfPJModel(razaoSocial: "ACME", cnpj: "37021914000149")
+
+
+if let newPFModel: PFModel = convertUnknowedTypeOfModelToCustomModel(withModel: unknowedTypeOfPFModel, convertTo: .PFModel) as? PFModel {
+    print("O CPF do \( newPFModel.name ) é \( maskCpfOrCnpj(from: newPFModel.cpf) )")
+}
+
+if let newPJModel: PJModel = convertUnknowedTypeOfModelToCustomModel(withModel: unknowedTypeOfPJModel, convertTo: .PJModel) as? PJModel {
+    print("O CNPJ da empresa \(newPJModel.razaoSocial) é \( maskCpfOrCnpj(from: newPJModel.cnpj) )")
+}
+
+
